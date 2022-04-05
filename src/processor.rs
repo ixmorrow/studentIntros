@@ -5,14 +5,15 @@ use solana_program::{
     program_error::ProgramError,
     msg,
     pubkey::Pubkey,
-    program_pack::{Pack, IsInitialized},
     sysvar::{rent::Rent, Sysvar},
     system_program::ID as SYSTEM_PROGRAM_ID,
     system_instruction,
     program::{invoke_signed},
+    program_pack::{IsInitialized, Pack},
 };
-use borsh::{BorshDeserialize, BorshSerialize};
 use crate::{instruction::IntroInstruction, state::StudentInfo};
+use crate::{error::IntroError};
+
 
 
 pub struct Processor;
@@ -33,66 +34,12 @@ impl Processor {
         instruction_data: &[u8],
     ) -> ProgramResult {
         sol_log_compute_units();
+        let instruction = IntroInstruction::unpack(instruction_data)?;
 
-        let instruction = IntroInstruction::try_from_slice(instruction_data)
-        .map_err(|_| ProgramError::InvalidInstructionData)?;
-
-        let accounts_iter = &mut accounts.iter();
+        let account_info_iter = &mut accounts.iter();
         match instruction {
-            IntroInstruction::Initialize => {
-                msg!("Instruction: Initialize");
-
-            let account_info_iter = &mut accounts.iter();
-            let initializer = next_account_info(account_info_iter)?;
-
-            if !initializer.is_signer {
-                msg!("Initializer is not signer");
-                return Err(ProgramError::MissingRequiredSignature);
-            }
-
-            let user_account = next_account_info(account_info_iter)?;
-            let system_program = next_account_info(account_info_iter)?;
-        
-            msg!("finding pda");
-            let (pda, bump_seed) = Pubkey::find_program_address(&[initializer.key.as_ref(),], program_id);
-            msg!("pda: {}", pda);
-
-            msg!("initializing account at pda");
-            invoke_signed(
-                    &system_instruction::create_account(
-                    initializer.key,
-                    user_account.key,
-                    Rent::get()?.minimum_balance(8),
-                    8,
-                    program_id,
-                ),
-                &[initializer.clone(), user_account.clone(), system_program.clone()],
-                &[&[initializer.key.as_ref(), &[bump_seed]]],
-            )?;
-
-            assert_with_msg(
-                *system_program.key == SYSTEM_PROGRAM_ID,
-                ProgramError::InvalidArgument,
-                "Invalid passed in for system program",
-            )?;
-            assert_with_msg(
-                pda == *user_account.key,
-                ProgramError::InvalidArgument,
-                "Invalid PDA seeds for user account",
-            )?;
-
-            let mut user = StudentInfo::try_from_slice(&user_account.data.borrow())?;
-            user.test_data = 1;
-            msg!("initialized user account data: {}", user.test_data);
-            //msg!("user input: {}", input);
-            user.serialize(&mut *user_account.data.borrow_mut())?;
-
-            sol_log_compute_units();
-        }
-        IntroInstruction::InitializeUserInput { input } => {
+        IntroInstruction::InitializeUserInput (input)  => {
             msg!("Initialize with user input");
-
-            let account_info_iter = &mut accounts.iter();
             let initializer = next_account_info(account_info_iter)?;
 
             if !initializer.is_signer {
@@ -102,6 +49,7 @@ impl Processor {
 
             let user_account = next_account_info(account_info_iter)?;
             let system_program = next_account_info(account_info_iter)?;
+            let rent = &Rent::from_account_info(next_account_info(account_info_iter)?)?;
             
             msg!("finding pda");
             let (pda, bump_seed) = Pubkey::find_program_address(&[initializer.key.as_ref(),], program_id);
@@ -112,8 +60,8 @@ impl Processor {
                     &system_instruction::create_account(
                     initializer.key,
                     user_account.key,
-                    Rent::get()?.minimum_balance(8),
-                    8,
+                    Rent::get()?.minimum_balance(181),
+                    181,
                     program_id,
                 ),
                 &[initializer.clone(), user_account.clone(), system_program.clone()],
@@ -131,10 +79,26 @@ impl Processor {
                 "Invalid PDA seeds for user account",
             )?;
 
-            let mut user = StudentInfo::try_from_slice(&user_account.data.borrow())?;
-            user.test_data = input;
-            msg!("initialized user account data with input: {}", user.test_data);
-            user.serialize(&mut *user_account.data.borrow_mut())?;
+            msg!("User intro: {}", input);
+            if !rent.is_exempt(user_account.lamports(), user_account.data_len()) {
+                msg!("user account is not rent exempt");
+                return Err(IntroError::NotRentExempt.into());
+            }
+            msg!("unpacking state account");
+            let mut account_data = user_account.data.borrow_mut();
+            msg!("borrowed account data");
+            let mut user = StudentInfo::unpack_from_slice(&account_data)?;
+            msg!("checking if user account is already initialized");
+            if user.is_initialized() {
+                msg!("Account already initialized");
+                return Err(ProgramError::AccountAlreadyInitialized);
+            }
+            user.set_initialize();
+            user.set_name(input);
+            msg!("user intro: {}", user.msg);
+            msg!("serializing account");
+            StudentInfo::pack_into_slice(&user, &mut account_data);
+            msg!("state account serialized");
 
             sol_log_compute_units();
 
