@@ -51,7 +51,6 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAccountData = void 0;
 var _a = require("@solana/web3.js"), Connection = _a.Connection, sendAndConfirmTransaction = _a.sendAndConfirmTransaction, Keypair = _a.Keypair, Transaction = _a.Transaction, SystemProgram = _a.SystemProgram, PublicKey = _a.PublicKey, TransactionInstruction = _a.TransactionInstruction, pubkey = _a.pubkey, SYSVAR_RENT_PUBKEY = _a.SYSVAR_RENT_PUBKEY, LAMPORTS_PER_SOL = _a.LAMPORTS_PER_SOL, AccountData = _a.AccountData, AccountMeta = _a.AccountMeta;
 var borsh_1 = require("borsh");
 var buffer_1 = require("buffer");
@@ -115,7 +114,7 @@ var userInputIx = function (i, user, userInfo) {
                 isWritable: false,
             }
         ],
-        data: buffer_1.Buffer.concat([buffer_1.Buffer.from(new Uint8Array([1])), i]),
+        data: buffer_1.Buffer.concat([buffer_1.Buffer.from(new Uint8Array([0])), i]),
         programId: program_id,
     });
 };
@@ -169,94 +168,26 @@ var accountSchema = new Map([
         }
     ]
 ]);
-/**
-* Fetch program account data
-* @param {Connection} connection - Solana RPC connection
-* @param {PublicKey} account - Public key for account whose data we want
-* @return {Promise<AccoundData>} - Keypair
-*/
-function getAccountData(connection, account) {
+function main(userName) {
     return __awaiter(this, void 0, void 0, function () {
-        var nameAccount;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0: return [4 /*yield*/, connection.getAccountInfo(account, 'processed')];
-                case 1:
-                    nameAccount = _a.sent();
-                    return [2 /*return*/, (0, borsh_1.deserializeUnchecked)(accountSchema, AccountData, nameAccount.data)];
-            }
-        });
-    });
-}
-exports.getAccountData = getAccountData;
-function main() {
-    return __awaiter(this, void 0, void 0, function () {
-        var tx, userInfo, initIx, signers, txid;
+        var tx, userInfo, payload, userSerBuf, PayloadCopy, ix, signers, txid, userAccount;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
                     console.log("Program id: " + program_id.toBase58());
-                    //console.log("User pubkey: " + wallet.publicKey);
                     console.log("Fee payer: " + feePayer.publicKey);
                     tx = new Transaction();
-                    console.log("deriving pda ");
-                    return [4 /*yield*/, PublicKey.findProgramAddress([feePayer.publicKey.toBuffer()], program_id)];
-                case 1:
-                    userInfo = (_a.sent())[0];
-                    console.log("PDA: " + userInfo);
-                    console.log("creating init instruction");
-                    initIx = initialize(feePayer.publicKey, userInfo);
-                    console.log("adding instruction to transaction");
-                    tx.add(initIx);
-                    return [4 /*yield*/, connection.getBalance(feePayer.publicKey)];
-                case 2:
-                    if (!((_a.sent()) < 1.0)) return [3 /*break*/, 4];
-                    console.log("Requesting Airdrop of 1 SOL...");
-                    return [4 /*yield*/, connection.requestAirdrop(feePayer.publicKey, 2e9)];
-                case 3:
-                    _a.sent();
-                    console.log("Airdrop received");
-                    _a.label = 4;
-                case 4:
-                    signers = [feePayer];
-                    console.log("sending tx");
-                    return [4 /*yield*/, sendAndConfirmTransaction(connection, tx, signers, {
-                            skipPreflight: true,
-                            preflightCommitment: "confirmed",
-                            confirmation: "confirmed",
-                        })];
-                case 5:
-                    txid = _a.sent();
-                    console.log("tx signature " + txid);
-                    console.log("https://explorer.solana.com/tx/".concat(txid, "?cluster=devnet"));
-                    return [2 /*return*/];
-            }
-        });
-    });
-}
-function testUserInput(userName) {
-    return __awaiter(this, void 0, void 0, function () {
-        var tx, userInfo, payload, userSerBuf, mintPayloadCopy, ix, signers, txid;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    console.log("Program id: " + program_id.toBase58());
-                    //console.log("User pubkey: " + wallet.publicKey);
-                    console.log("Fee payer: " + feePayer.publicKey);
-                    tx = new Transaction();
-                    console.log("deriving pda ");
                     return [4 /*yield*/, PublicKey.findProgramAddress([feePayer.publicKey.toBuffer()], program_id)];
                 case 1:
                     userInfo = (_a.sent())[0];
                     console.log("PDA: " + userInfo);
                     payload = new Payload({
-                        id: 1,
                         name: userName
                     });
                     userSerBuf = buffer_1.Buffer.from((0, borsh_1.serialize)(payloadSchema, payload));
-                    console.log("Serialized data " + userSerBuf);
-                    mintPayloadCopy = (0, borsh_1.deserialize)(payloadSchema, Payload, userSerBuf);
-                    console.log(mintPayloadCopy);
+                    console.log("Serialized data: " + userSerBuf);
+                    PayloadCopy = (0, borsh_1.deserialize)(payloadSchema, Payload, userSerBuf);
+                    console.log(PayloadCopy);
                     console.log("creating init instruction");
                     ix = userInputIx(userSerBuf, feePayer.publicKey, userInfo);
                     tx.add(ix);
@@ -286,12 +217,23 @@ function testUserInput(userName) {
                 case 6:
                     // sleep to allow time to update
                     _a.sent();
+                    return [4 /*yield*/, connection.getAccountInfo(userInfo)];
+                case 7:
+                    userAccount = _a.sent();
+                    if (userAccount === null || userAccount.data.length === 0) {
+                        console.log("User state account has not been initialized properly");
+                        process.exit(1);
+                    }
+                    else {
+                        console.log(userAccount.data);
+                    }
                     return [2 /*return*/];
             }
         });
     });
 }
-testUserInput("Ivan")
+var msg = "hello my name is Ivan. Im currently learning solana development and loving every minute of it! Sol is going to the moon!! I'm not sure what else to write, this needs to be 180 char";
+main(msg)
     .then(function () {
     console.log("Success");
 })

@@ -32,32 +32,7 @@ const {
 
   const feePayer = Keypair.generate();
 
-  const initialize = (user: typeof PublicKey, userInfo: typeof PublicKey) => {
-    return new TransactionInstruction({
-      keys: [
-        {
-          pubkey: user,
-          isSigner: true,
-          isWritable: false,
-        },
-        {
-          pubkey: userInfo,
-          isSigner: false,
-          isWritable: true,
-        },
-        {
-          pubkey: SystemProgram.programId,
-          isSigner: false,
-          isWritable: false,
-        },
-      ],
-      data: Buffer.from(new Uint8Array([0])),
-      programId: program_id,
-    });
-  };
-
   const userInputIx = (i: Buffer, user: typeof PublicKey, userInfo: typeof PublicKey) => {
-    //const iters = Buffer.from(new Uint8Array(new BN(i).toArray("le", 8)));
     return new TransactionInstruction({
       keys: [
         {
@@ -81,7 +56,7 @@ const {
           isWritable: false,
         }
       ],
-      data: Buffer.concat([Buffer.from(new Uint8Array([1])), i]),
+      data: Buffer.concat([Buffer.from(new Uint8Array([0])), i]),
       programId: program_id,
     });
   };
@@ -125,73 +100,12 @@ const {
         }
     ]
   ]);
-
-  /**
- * Fetch program account data
- * @param {Connection} connection - Solana RPC connection
- * @param {PublicKey} account - Public key for account whose data we want
- * @return {Promise<AccoundData>} - Keypair
- */
-export async function getAccountData(connection: typeof Connection, account: typeof PublicKey): Promise<typeof AccountData> {
-  let nameAccount = await connection.getAccountInfo(
-      account,
-      'processed'
-  );
-  return deserializeUnchecked(accountSchema, AccountData, nameAccount.data)
-}
-
-
-
-  async function main () {
+  async function main(userName: string) {
     console.log("Program id: " + program_id.toBase58());
-    //console.log("User pubkey: " + wallet.publicKey);
     console.log("Fee payer: " + feePayer.publicKey);
 
     const tx = new Transaction();
 
-    console.log("deriving pda ");
-    const userInfo = (await PublicKey.findProgramAddress(
-      [feePayer.publicKey.toBuffer()],
-      program_id
-    ))[0];
-    console.log("PDA: " + userInfo);
-
-    console.log("creating init instruction");
-    const initIx = initialize(feePayer.publicKey, userInfo);
-
-    console.log("adding instruction to transaction");
-    tx.add(initIx);
-
-    //const balance = await connection.getBalance(wallet.publicKey.toBase58());
-    //console.log("Wallet balance " + balance);
-
-    if ((await connection.getBalance(feePayer.publicKey)) < 1.0) {
-      console.log("Requesting Airdrop of 1 SOL...");
-      await connection.requestAirdrop(feePayer.publicKey, 2e9);
-      console.log("Airdrop received");
-    }
-
-    let signers = [feePayer];
-
-    console.log("sending tx");
-    let txid = await sendAndConfirmTransaction(connection, tx, signers, {
-      skipPreflight: true,
-      preflightCommitment: "confirmed",
-      confirmation: "confirmed",
-    });
-    console.log("tx signature " + txid);
-    console.log(`https://explorer.solana.com/tx/${txid}?cluster=devnet`);
-
-  }
-
-  async function testUserInput(userName: string) {
-    console.log("Program id: " + program_id.toBase58());
-    //console.log("User pubkey: " + wallet.publicKey);
-    console.log("Fee payer: " + feePayer.publicKey);
-
-    const tx = new Transaction();
-
-    console.log("deriving pda ");
     const userInfo = (await PublicKey.findProgramAddress(
       [feePayer.publicKey.toBuffer()],
       program_id
@@ -199,14 +113,13 @@ export async function getAccountData(connection: typeof Connection, account: typ
     console.log("PDA: " + userInfo);
 
     const payload = new Payload({
-      id: 1,
       name: userName
     });
     // Serialize the payload
     const userSerBuf = Buffer.from(serialize(payloadSchema, payload));
-    console.log("Serialized data " + userSerBuf);
-    let mintPayloadCopy = deserialize(payloadSchema, Payload, userSerBuf);
-    console.log(mintPayloadCopy)
+    console.log("Serialized data: " + userSerBuf);
+    let PayloadCopy = deserialize(payloadSchema, Payload, userSerBuf);
+    console.log(PayloadCopy)
 
     console.log("creating init instruction");
     const ix = userInputIx(userSerBuf, feePayer.publicKey, userInfo);
@@ -232,23 +145,23 @@ export async function getAccountData(connection: typeof Connection, account: typ
     // sleep to allow time to update
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    // const userAccount = await getAccountData(
-    //   connection,
-    //   userInfo
-    // );
+    const userAccount = await connection.getAccountInfo(
+      userInfo
+    );
 
-    // if (userAccount === null || userAccount.data.length === 0) {
-    //   console.log("User state account has not been initialized properly");
-    //   process.exit(1);
-    // }
-    // else{
-    //   console.log(userAccount.data);
-    // }
+    if (userAccount === null || userAccount.data.length === 0) {
+      console.log("User state account has not been initialized properly");
+      process.exit(1);
+    }
+    else{
+      console.log(userAccount.data);
+    }
 
 
   }
 
-  testUserInput("Ivan")
+  const msg = "hello my name is Ivan. Im currently learning solana development and loving every minute of it! Sol is going to the moon!! I'm not sure what else to write, this needs to be 180 char"
+  main(msg)
   .then(() => {
     console.log("Success");
   })
