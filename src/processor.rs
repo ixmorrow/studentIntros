@@ -122,8 +122,8 @@ impl Processor {
                     &system_instruction::create_account(
                     initializer.key,
                     user_account.key,
-                    Rent::get()?.minimum_balance(8),
-                    8,
+                    Rent::get()?.minimum_balance(200),
+                    200,
                     program_id,
                 ),
                 &[initializer.clone(), user_account.clone(), system_program.clone()],
@@ -149,7 +149,8 @@ impl Processor {
             msg!("unpacking state account");
             let mut account_data = user_account.data.borrow_mut();
             msg!("borrowed account data");
-            let mut user = StudentInfo::unpack_unchecked(&account_data)?;
+            //let mut user = StudentInfo::unpack_unchecked(&account_data)?;
+            let mut user = StudentInfo::unpack_from_slice(&account_data)?;
             msg!("checking if user account is already initialized");
             if user.is_initialized() {
                 msg!("Account already initialized");
@@ -161,7 +162,8 @@ impl Processor {
             user.set_name(input);
             msg!("user data: {}", user.name);
             msg!("serializing account");
-            StudentInfo::pack(user, &mut account_data)?;
+            StudentInfo::pack_into_slice(&user, &mut account_data);
+            //StudentInfo::pack(user, &mut account_data)?;
             msg!("state account serialized");
 
             sol_log_compute_units();

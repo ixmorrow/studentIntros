@@ -12,7 +12,7 @@ pub struct StudentInfo {
     pub is_initialized: bool,
     pub name: String,
 }
-const STUDENT_INFO_LEN: usize = 200;
+const STUDENT_INFO_LEN: usize = 5;
 impl Sealed for StudentInfo {}
 impl StudentInfo {
     pub fn set_initialize(&mut self) {
@@ -39,8 +39,8 @@ impl Pack for StudentInfo {
         let (
             is_initialized_dst,
             name_dst,
-            _padding,
-         )= mut_array_refs![dst, 1, 32, 167];
+            //_padding,
+         )= mut_array_refs![dst, 1, 4];
 
         is_initialized_dst[0] = self.is_initialized as u8;
         name_dst.copy_from_slice(self.name.as_bytes());
@@ -53,8 +53,8 @@ impl Pack for StudentInfo {
         let (
             is_initialized_src,
             name,
-            _padding
-        )= array_refs![src, 1, 32, 167];
+            //_padding
+        )= array_refs![src, 1, 4];
 
         let is_initialized = match is_initialized_src {
             [0] => false,
