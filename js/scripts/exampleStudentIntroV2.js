@@ -59,38 +59,8 @@ var RPC_ENDPOINT_URL = "https://api.devnet.solana.com";
 var commitment = 'confirmed';
 var connection = new Connection(RPC_ENDPOINT_URL, commitment);
 var program_id = new PublicKey("6wNDDbfhqyY8Nm8H2dzAPywjt2D7VKfBzKuSjE3pcgVr");
-// MY WALLET SETTING
-var id_json_path = require('os').homedir() + "/.config/solana/test-wallet.json";
-//const id_json_path = require('os').homedir() + "/.config/solana/my-keypair.json";
-//const id_json_path = require('os').homedir() + "/.config/solana/id.json";
-var secret = Uint8Array.from(JSON.parse(require("fs").readFileSync(id_json_path)));
-var wallet = Keypair.fromSecretKey(secret);
 var feePayer = Keypair.generate();
-var initialize = function (user, userInfo) {
-    return new TransactionInstruction({
-        keys: [
-            {
-                pubkey: user,
-                isSigner: true,
-                isWritable: false,
-            },
-            {
-                pubkey: userInfo,
-                isSigner: false,
-                isWritable: true,
-            },
-            {
-                pubkey: SystemProgram.programId,
-                isSigner: false,
-                isWritable: false,
-            },
-        ],
-        data: buffer_1.Buffer.from(new Uint8Array([0])),
-        programId: program_id,
-    });
-};
 var userInputIx = function (i, user, userInfo) {
-    //const iters = Buffer.from(new Uint8Array(new BN(i).toArray("le", 8)));
     return new TransactionInstruction({
         keys: [
             {
@@ -233,7 +203,8 @@ function main(userName) {
     });
 }
 var msg = "hello my name is Ivan. Im currently learning solana development and loving every minute of it! Sol is going to the moon!! I'm not sure what else to write, this needs to be 180 char";
-main(msg)
+var msg1 = "hey this is another test";
+main(msg1)
     .then(function () {
     console.log("Success");
 })

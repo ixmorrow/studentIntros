@@ -23,13 +23,6 @@ const {
   const connection = new Connection(RPC_ENDPOINT_URL, commitment);
   const program_id = new PublicKey("6wNDDbfhqyY8Nm8H2dzAPywjt2D7VKfBzKuSjE3pcgVr");
 
-  // MY WALLET SETTING
-  const id_json_path = require('os').homedir() + "/.config/solana/test-wallet.json";
-  //const id_json_path = require('os').homedir() + "/.config/solana/my-keypair.json";
-  //const id_json_path = require('os').homedir() + "/.config/solana/id.json";
-  const secret = Uint8Array.from(JSON.parse(require("fs").readFileSync(id_json_path)));
-  const wallet = Keypair.fromSecretKey(secret as Uint8Array);
-
   const feePayer = Keypair.generate();
 
   const userInputIx = (i: Buffer, user: typeof PublicKey, userInfo: typeof PublicKey) => {
@@ -161,7 +154,8 @@ const {
   }
 
   const msg = "hello my name is Ivan. Im currently learning solana development and loving every minute of it! Sol is going to the moon!! I'm not sure what else to write, this needs to be 180 char"
-  main(msg)
+  const msg1 = "hey this is another test";
+  main(msg1)
   .then(() => {
     console.log("Success");
   })
