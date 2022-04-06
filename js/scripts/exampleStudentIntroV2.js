@@ -59,12 +59,6 @@ var RPC_ENDPOINT_URL = "https://api.devnet.solana.com";
 var commitment = 'confirmed';
 var connection = new Connection(RPC_ENDPOINT_URL, commitment);
 var program_id = new PublicKey("6wNDDbfhqyY8Nm8H2dzAPywjt2D7VKfBzKuSjE3pcgVr");
-// MY WALLET SETTING
-var id_json_path = require('os').homedir() + "/.config/solana/test-wallet.json";
-//const id_json_path = require('os').homedir() + "/.config/solana/my-keypair.json";
-//const id_json_path = require('os').homedir() + "/.config/solana/id.json";
-var secret = Uint8Array.from(JSON.parse(require("fs").readFileSync(id_json_path)));
-var wallet = Keypair.fromSecretKey(secret);
 var feePayer = Keypair.generate();
 var userInputIx = function (i, user, userInfo) {
     return new TransactionInstruction({

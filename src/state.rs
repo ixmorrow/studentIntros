@@ -8,7 +8,7 @@ pub struct StudentInfo {
     pub is_initialized: bool,
     pub msg: [u8; MSG_SIZE],
 }
-//const STUDENT_INFO_LEN: usize = 129;
+
 const MSG_SIZE: usize = 128;
 impl Sealed for StudentInfo {}
 

@@ -23,13 +23,6 @@ const {
   const connection = new Connection(RPC_ENDPOINT_URL, commitment);
   const program_id = new PublicKey("6wNDDbfhqyY8Nm8H2dzAPywjt2D7VKfBzKuSjE3pcgVr");
 
-  // MY WALLET SETTING
-  const id_json_path = require('os').homedir() + "/.config/solana/test-wallet.json";
-  //const id_json_path = require('os').homedir() + "/.config/solana/my-keypair.json";
-  //const id_json_path = require('os').homedir() + "/.config/solana/id.json";
-  const secret = Uint8Array.from(JSON.parse(require("fs").readFileSync(id_json_path)));
-  const wallet = Keypair.fromSecretKey(secret as Uint8Array);
-
   const feePayer = Keypair.generate();
 
   const userInputIx = (i: Buffer, user: typeof PublicKey, userInfo: typeof PublicKey) => {
