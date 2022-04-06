@@ -9,11 +9,12 @@ use solana_program::{
     system_program::ID as SYSTEM_PROGRAM_ID,
     system_instruction,
     program::{invoke_signed},
-    program_pack::{IsInitialized, Pack},
+    program_pack::{IsInitialized},
 };
 use crate::{instruction::IntroInstruction, state::StudentInfo};
 use crate::{error::IntroError};
-
+use std::io::Write;
+use borsh::{ BorshDeserialize, BorshSerialize };
 
 
 pub struct Processor;
@@ -27,6 +28,10 @@ pub fn assert_with_msg(statement: bool, err: ProgramError, msg: &str) -> Program
     }
 }
 
+fn fill_from_str(mut bytes: &mut [u8], s: &[u8]) {
+    bytes.write(s).unwrap();
+}
+
 impl Processor {
     pub fn process_instruction(
         program_id: &Pubkey,
@@ -35,6 +40,7 @@ impl Processor {
     ) -> ProgramResult {
         sol_log_compute_units();
         let instruction = IntroInstruction::unpack(instruction_data)?;
+        const SIZE: usize = 128;
 
         let account_info_iter = &mut accounts.iter();
         match instruction {
@@ -60,8 +66,8 @@ impl Processor {
                     &system_instruction::create_account(
                     initializer.key,
                     user_account.key,
-                    Rent::get()?.minimum_balance(181),
-                    181,
+                    Rent::get()?.minimum_balance(129),
+                    129,
                     program_id,
                 ),
                 &[initializer.clone(), user_account.clone(), system_program.clone()],
@@ -87,17 +93,28 @@ impl Processor {
             msg!("unpacking state account");
             let mut account_data = user_account.data.borrow_mut();
             msg!("borrowed account data");
-            let mut user = StudentInfo::unpack_from_slice(&account_data)?;
+            let mut user = StudentInfo::try_from_slice(&account_data)?;
+
+            let data = instruction_data;
+            //let n = instruction_data.len();
+            let mut bytes: [u8; SIZE] = [0; SIZE];
+            if instruction_data.len() >= SIZE {
+                user.msg.clone_from_slice(&data[0..SIZE]);
+            }
+            else {
+                fill_from_str(&mut bytes,data);
+                user.msg.clone_from_slice(&bytes[0..SIZE]);
+            }
             msg!("checking if user account is already initialized");
             if user.is_initialized() {
                 msg!("Account already initialized");
                 return Err(ProgramError::AccountAlreadyInitialized);
             }
-            user.set_initialize();
-            user.set_name(input);
-            msg!("user intro: {}", user.msg);
+
+            user.is_initialized = true;
+            msg!("user intro: {:?}", user.msg);
             msg!("serializing account");
-            StudentInfo::pack_into_slice(&user, &mut account_data);
+            user.serialize(&mut &mut account_data[..])?;
             msg!("state account serialized");
 
             sol_log_compute_units();

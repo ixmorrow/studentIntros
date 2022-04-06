@@ -161,7 +161,8 @@ const {
   }
 
   const msg = "hello my name is Ivan. Im currently learning solana development and loving every minute of it! Sol is going to the moon!! I'm not sure what else to write, this needs to be 180 char"
-  main(msg)
+  const msg1 = "hey this is another test";
+  main(msg1)
   .then(() => {
     console.log("Success");
   })
