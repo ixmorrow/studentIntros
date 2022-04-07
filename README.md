@@ -3,9 +3,7 @@ This program is currently deployed on the Solana Devnet at Program ID: 6wNDDbfhq
 
 The purpose of this program is to allow students to provide an intro about themselves with info like how long they have been a dev, how/why they got into solana, and what they expect to get out of the course. 
 
-In the program's current implementation, the input provided by the user has to be exactly 180 characters in order for it to be encoded into the state on-chain. I chose 180 characters arbitrarily because that's how long a tweet is - we can change this to whatever we want.
-
-To make this program more robust, can add functionality so that it can handle input less than 180 characters if we want or we can enforce this on the client/front-end side.
+In the program's current implementation, only the first 128 characters of the string passed in as input will be encoded to the state account. If the message is less than 128 characters, the program will pad the buffer with 0's until it is the desired 128 bytes long.
 
 ## Testing
 To run the testing script, you will have to 'NPM Install' the dependencies and then run the js file with 'node exampleStudentIntroV2.js'
