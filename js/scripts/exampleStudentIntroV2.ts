@@ -6,17 +6,10 @@ const {
     SystemProgram,
     PublicKey,
     TransactionInstruction,
-    pubkey,
     SYSVAR_RENT_PUBKEY,
-    LAMPORTS_PER_SOL,
-    AccountData,
-    AccountMeta,
-
   } = require("@solana/web3.js");
-  import { serialize, deserialize, deserializeUnchecked } from 'borsh';
   import { Buffer } from 'buffer';
-
-  const BN = require('BN.js'); 
+  import * as borsh from "@project-serum/borsh";
 
   const RPC_ENDPOINT_URL = "https://api.devnet.solana.com";
   const commitment = 'confirmed';
@@ -54,45 +47,15 @@ const {
     });
   };
 
-  // Flexible class that takes properties and imbues them
-  // to the object instance
-  class Assignable {
-    constructor(properties) {
-        Object.keys(properties).map((key) => {
-            return (this[key] = properties[key]);
-        });
-    }
-  }
-
-  // Our instruction payload vocabulary
-  class Payload extends Assignable { }
-  class DeserializedAccount extends Assignable { }
-
-  // Borsh needs a schema describing the payload
-  const payloadSchema = new Map([
-    [
-      Payload,
-      {
-          kind: "struct",
-          fields: [
-              ["name", "string"],
-          ]
-      }
-    ]
+  const IX_DATA_LAYOUT = borsh.struct([
+    borsh.str("message")
   ]);
 
-  const accountSchema = new Map([
-    [
-        DeserializedAccount,
-        {
-            kind: "struct",
-            fields: [
-                ["initialized", "u8"],
-                ["name", "string"],
-            ]
-        }
-    ]
-  ]);
+  const USER_ACCOUNT_DATA_LAYOUT = borsh.struct([
+    borsh.u8("initialized"),
+    borsh.str("message")
+  ])
+
   async function main(userName: string) {
     console.log("Program id: " + program_id.toBase58());
     console.log("Fee payer: " + feePayer.publicKey);
@@ -105,21 +68,20 @@ const {
     ))[0];
     console.log("PDA: " + userInfo);
 
-    const payload = new Payload({
-      name: userName
-    });
-    // Serialize the payload
-    const userSerBuf = Buffer.from(serialize(payloadSchema, payload));
-    console.log("Serialized data: " + userSerBuf);
-    let PayloadCopy = deserialize(payloadSchema, Payload, userSerBuf);
-    console.log(PayloadCopy)
+    const payload = {
+      message: userName
+    }
+    const msgBuffer = Buffer.alloc(128);
+    console.log(msgBuffer);
+    IX_DATA_LAYOUT.encode(payload, msgBuffer);
+    console.log(msgBuffer);
 
     console.log("creating init instruction");
-    const ix = userInputIx(userSerBuf, feePayer.publicKey, userInfo);
+    const ix = userInputIx(msgBuffer, feePayer.publicKey, userInfo);
     tx.add(ix);
 
     if ((await connection.getBalance(feePayer.publicKey)) < 1.0) {
-      console.log("Requesting Airdrop of 1 SOL...");
+      console.log("Requesting Airdrop of 2 SOL...");
       await connection.requestAirdrop(feePayer.publicKey, 2e9);
       console.log("Airdrop received");
     }
@@ -138,27 +100,68 @@ const {
     // sleep to allow time to update
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    const userAccount = await connection.getAccountInfo(
-      userInfo
+    const acct = await connection.getAccountInfo(userInfo);
+    console.log(acct);
+  }
+
+  const getPage = async (begin, end, programId) => {
+    // fetchs all accounts owned by the given program
+    // the dataSlice param means we are not fetching the account data with this
+    // cuts down on compute time as this call could be trying to fetching any number of accounts
+    const accounts = await connection.getProgramAccounts(programId, {
+      dataSlice: { offset: 0, length: 0 } // Fetch without any data.
+    });
+    // creates a map of all of the account pubkeys
+    const pubkeys = accounts.map(account => account.pubkey)
+    // slices the pubkey array to the length of parameters
+    const paginatedPublicKeys = pubkeys.slice(
+        begin,
+        end
     );
+    const len = paginatedPublicKeys.length
 
-    if (userAccount === null || userAccount.data.length === 0) {
-      console.log("User state account has not been initialized properly");
-      process.exit(1);
-    }
-    else{
-      console.log(userAccount.data);
+    if (len === 0) {
+        return [];
     }
 
+    console.log("Fetched", len,"accounts!")
+
+    // makes another RPC call to get all of the account info for the final array of sliced pubkeys
+    const accountsWithData = await connection.getMultipleAccountsInfo(paginatedPublicKeys);
+
+    return accountsWithData;
+}
+
+  //const testPDA = new PublicKey("CWScion3mHc5Ho9BCE3bKpGynsRuia9J2FsbpiTcVNri")
+  // //fetchUserAccount(testPDA)
+  async function fetchUserAccount(pda: typeof PublicKey){
+    const acct = await connection.getAccountInfo(pda)
+    const userData = USER_ACCOUNT_DATA_LAYOUT.decode(
+      acct.data
+    );
+    console.log("User account message:", userData.message);
+  }
+
+  async function fetchMultipleAccounts(begin, end, programId){
+    const accounts = await getPage(begin, end, programId);
+    for (let i=0; i< accounts.length; i++){
+      let userData = USER_ACCOUNT_DATA_LAYOUT.decode(
+        accounts[i].data
+      );
+      console.log("User message:", userData.message);
+    }
 
   }
 
-  const msg = "hello my name is Ivan. Im currently learning solana development and loving every minute of it! Sol is going to the moon!! I'm not sure what else to write, this needs to be 180 char"
-  const msg1 = "hey this is another test";
-  main(msg1)
+
+
+  fetchMultipleAccounts(0, 10, program_id)
+  //fetchUserAccount(testPDA)
+  //main(msg1)
   .then(() => {
     console.log("Success");
   })
   .catch((e) => {
     console.error(e);
   });
+  
