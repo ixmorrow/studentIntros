@@ -1,19 +1,27 @@
 "use strict";
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    };
-    return function (d, b) {
-        if (typeof b !== "function" && b !== null)
-            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -51,10 +59,9 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var _a = require("@solana/web3.js"), Connection = _a.Connection, sendAndConfirmTransaction = _a.sendAndConfirmTransaction, Keypair = _a.Keypair, Transaction = _a.Transaction, SystemProgram = _a.SystemProgram, PublicKey = _a.PublicKey, TransactionInstruction = _a.TransactionInstruction, pubkey = _a.pubkey, SYSVAR_RENT_PUBKEY = _a.SYSVAR_RENT_PUBKEY, LAMPORTS_PER_SOL = _a.LAMPORTS_PER_SOL, AccountData = _a.AccountData, AccountMeta = _a.AccountMeta;
-var borsh_1 = require("borsh");
+var _a = require("@solana/web3.js"), Connection = _a.Connection, sendAndConfirmTransaction = _a.sendAndConfirmTransaction, Keypair = _a.Keypair, Transaction = _a.Transaction, SystemProgram = _a.SystemProgram, PublicKey = _a.PublicKey, TransactionInstruction = _a.TransactionInstruction, SYSVAR_RENT_PUBKEY = _a.SYSVAR_RENT_PUBKEY;
 var buffer_1 = require("buffer");
-var BN = require('BN.js');
+var borsh = __importStar(require("@project-serum/borsh"));
 var RPC_ENDPOINT_URL = "https://api.devnet.solana.com";
 var commitment = 'confirmed';
 var connection = new Connection(RPC_ENDPOINT_URL, commitment);
@@ -88,59 +95,16 @@ var userInputIx = function (i, user, userInfo) {
         programId: program_id,
     });
 };
-// Flexible class that takes properties and imbues them
-// to the object instance
-var Assignable = /** @class */ (function () {
-    function Assignable(properties) {
-        var _this = this;
-        Object.keys(properties).map(function (key) {
-            return (_this[key] = properties[key]);
-        });
-    }
-    return Assignable;
-}());
-// Our instruction payload vocabulary
-var Payload = /** @class */ (function (_super) {
-    __extends(Payload, _super);
-    function Payload() {
-        return _super !== null && _super.apply(this, arguments) || this;
-    }
-    return Payload;
-}(Assignable));
-var DeserializedAccount = /** @class */ (function (_super) {
-    __extends(DeserializedAccount, _super);
-    function DeserializedAccount() {
-        return _super !== null && _super.apply(this, arguments) || this;
-    }
-    return DeserializedAccount;
-}(Assignable));
-// Borsh needs a schema describing the payload
-var payloadSchema = new Map([
-    [
-        Payload,
-        {
-            kind: "struct",
-            fields: [
-                ["name", "string"],
-            ]
-        }
-    ]
+var IX_DATA_LAYOUT = borsh.struct([
+    borsh.str("message")
 ]);
-var accountSchema = new Map([
-    [
-        DeserializedAccount,
-        {
-            kind: "struct",
-            fields: [
-                ["initialized", "u8"],
-                ["name", "string"],
-            ]
-        }
-    ]
+var USER_ACCOUNT_DATA_LAYOUT = borsh.struct([
+    borsh.u8("initialized"),
+    borsh.str("message")
 ]);
 function main(userName) {
     return __awaiter(this, void 0, void 0, function () {
-        var tx, userInfo, payload, userSerBuf, PayloadCopy, ix, signers, txid, userAccount;
+        var tx, userInfo, payload, msgBuffer, ix, signers, txid, acct;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -151,20 +115,20 @@ function main(userName) {
                 case 1:
                     userInfo = (_a.sent())[0];
                     console.log("PDA: " + userInfo);
-                    payload = new Payload({
-                        name: userName
-                    });
-                    userSerBuf = buffer_1.Buffer.from((0, borsh_1.serialize)(payloadSchema, payload));
-                    console.log("Serialized data: " + userSerBuf);
-                    PayloadCopy = (0, borsh_1.deserialize)(payloadSchema, Payload, userSerBuf);
-                    console.log(PayloadCopy);
+                    payload = {
+                        message: userName
+                    };
+                    msgBuffer = buffer_1.Buffer.alloc(128);
+                    console.log(msgBuffer);
+                    IX_DATA_LAYOUT.encode(payload, msgBuffer);
+                    console.log(msgBuffer);
                     console.log("creating init instruction");
-                    ix = userInputIx(userSerBuf, feePayer.publicKey, userInfo);
+                    ix = userInputIx(msgBuffer, feePayer.publicKey, userInfo);
                     tx.add(ix);
                     return [4 /*yield*/, connection.getBalance(feePayer.publicKey)];
                 case 2:
                     if (!((_a.sent()) < 1.0)) return [3 /*break*/, 4];
-                    console.log("Requesting Airdrop of 1 SOL...");
+                    console.log("Requesting Airdrop of 2 SOL...");
                     return [4 /*yield*/, connection.requestAirdrop(feePayer.publicKey, 2e9)];
                 case 3:
                     _a.sent();
@@ -189,21 +153,104 @@ function main(userName) {
                     _a.sent();
                     return [4 /*yield*/, connection.getAccountInfo(userInfo)];
                 case 7:
-                    userAccount = _a.sent();
-                    if (userAccount === null || userAccount.data.length === 0) {
-                        console.log("User state account has not been initialized properly");
-                        process.exit(1);
-                    }
-                    else {
-                        console.log(userAccount.data);
+                    acct = _a.sent();
+                    console.log(acct);
+                    return [2 /*return*/];
+            }
+        });
+    });
+}
+var perPage = 10;
+var getPage = function (page, pubkeys) { return __awaiter(void 0, void 0, void 0, function () {
+    var paginatedPublicKeys, len, accountsWithData;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                paginatedPublicKeys = pubkeys.slice((page - 1) * perPage, page * perPage);
+                len = paginatedPublicKeys.length;
+                if (len === 0) {
+                    return [2 /*return*/, []];
+                }
+                console.log("Fetched", len, "accounts!");
+                return [4 /*yield*/, connection.getMultipleAccountsInfo(paginatedPublicKeys)];
+            case 1:
+                accountsWithData = _a.sent();
+                return [2 /*return*/, accountsWithData];
+        }
+    });
+}); };
+// orders accounts, but in ascending order - want descending
+function fetchOrderedAccounts() {
+    return __awaiter(this, void 0, void 0, function () {
+        var accounts, accountsWithMsg, sortedAccountsWithMsg, reverseSortedAccounts, accountPublicKeys;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, connection.getProgramAccounts(program_id)];
+                case 1:
+                    accounts = _a.sent();
+                    accountsWithMsg = accounts.map(function (_a) {
+                        var pubkey = _a.pubkey, account = _a.account;
+                        return ({
+                            pubkey: pubkey,
+                            account: account,
+                            userData: USER_ACCOUNT_DATA_LAYOUT.decode(account.data),
+                        });
+                    });
+                    sortedAccountsWithMsg = accountsWithMsg.sort(function (a, b) { return b.userData.message.localeCompare(a.userData.message, { ignorePunctuation: true }); });
+                    reverseSortedAccounts = sortedAccountsWithMsg.reverse();
+                    accountPublicKeys = reverseSortedAccounts.map(function (account) { return account.pubkey; });
+                    return [2 /*return*/, accountPublicKeys];
+            }
+        });
+    });
+}
+function fetchMultipleAccounts(begin) {
+    return __awaiter(this, void 0, void 0, function () {
+        var accountsWithoutData, pubkeys, accounts, i, userData;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, connection.getProgramAccounts(program_id, {
+                        dataSlice: { offset: 0, length: 0 }, // Fetch without any data.
+                    })];
+                case 1:
+                    accountsWithoutData = _a.sent();
+                    pubkeys = accountsWithoutData.map(function (account) { return account.pubkey; });
+                    return [4 /*yield*/, getPage(begin, pubkeys)];
+                case 2:
+                    accounts = _a.sent();
+                    for (i = 0; i < accounts.length; i++) {
+                        userData = USER_ACCOUNT_DATA_LAYOUT.decode(accounts[i].data);
+                        console.log("User message:", userData.message);
                     }
                     return [2 /*return*/];
             }
         });
     });
 }
-var msg = "hello my name is Ivan. Im currently learning solana development and loving every minute of it! Sol is going to the moon!! I'm not sure what else to write, this needs to be 180 char";
-var msg1 = "hey this is another test";
+function order() {
+    return __awaiter(this, void 0, void 0, function () {
+        var orderAccts, orderAcctsWithData, i, userData;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, fetchOrderedAccounts()];
+                case 1:
+                    orderAccts = _a.sent();
+                    return [4 /*yield*/, getPage(1, orderAccts)];
+                case 2:
+                    orderAcctsWithData = _a.sent();
+                    for (i = 0; i < orderAcctsWithData.length; i++) {
+                        userData = USER_ACCOUNT_DATA_LAYOUT.decode(orderAcctsWithData[i].data);
+                        console.log("User message:", userData.message);
+                    }
+                    return [2 /*return*/];
+            }
+        });
+    });
+}
+var msg1 = "this is a test string";
+//order()
+//fetchMultipleAccounts(1)
+//fetchUserAccount(testPDA)
 main(msg1)
     .then(function () {
     console.log("Success");

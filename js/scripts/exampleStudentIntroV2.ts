@@ -72,7 +72,6 @@ const {
       message: userName
     }
     const msgBuffer = Buffer.alloc(128);
-    console.log(msgBuffer);
     IX_DATA_LAYOUT.encode(payload, msgBuffer);
     console.log(msgBuffer);
 
@@ -104,19 +103,12 @@ const {
     console.log(acct);
   }
 
-  const getPage = async (begin, end, programId) => {
-    // fetchs all accounts owned by the given program
-    // the dataSlice param means we are not fetching the account data with this
-    // cuts down on compute time as this call could be trying to fetching any number of accounts
-    const accounts = await connection.getProgramAccounts(programId, {
-      dataSlice: { offset: 0, length: 0 } // Fetch without any data.
-    });
-    // creates a map of all of the account pubkeys
-    const pubkeys = accounts.map(account => account.pubkey)
+  const perPage = 10;
+  const getPage = async (page, pubkeys) => {
     // slices the pubkey array to the length of parameters
     const paginatedPublicKeys = pubkeys.slice(
-        begin,
-        end
+        (page - 1) * perPage,
+        page * perPage,
     );
     const len = paginatedPublicKeys.length
 
@@ -132,18 +124,35 @@ const {
     return accountsWithData;
 }
 
-  //const testPDA = new PublicKey("CWScion3mHc5Ho9BCE3bKpGynsRuia9J2FsbpiTcVNri")
-  // //fetchUserAccount(testPDA)
-  async function fetchUserAccount(pda: typeof PublicKey){
-    const acct = await connection.getAccountInfo(pda)
-    const userData = USER_ACCOUNT_DATA_LAYOUT.decode(
-      acct.data
-    );
-    console.log("User account message:", userData.message);
-  }
+// orders accounts, but in ascending order - want descending
+async function fetchOrderedAccounts(){
+  const accounts = await connection.getProgramAccounts(program_id);
 
-  async function fetchMultipleAccounts(begin, end, programId){
-    const accounts = await getPage(begin, end, programId);
+  const accountsWithMsg = accounts.map(({ pubkey, account }) => ({
+    pubkey,
+    account,
+    userData: USER_ACCOUNT_DATA_LAYOUT.decode(account.data),
+  }));
+
+  const sortedAccountsWithMsg = accountsWithMsg.sort((a, b) => b.userData.message.localeCompare(
+    a.userData.message,
+    { ignorePunctuation: true }
+    ));
+
+  const reverseSortedAccounts = sortedAccountsWithMsg.reverse();
+
+  const accountPublicKeys = reverseSortedAccounts.map((account) => account.pubkey);
+
+  return accountPublicKeys
+}
+
+async function fetchMultipleAccounts(begin){
+    const accountsWithoutData = await connection.getProgramAccounts(program_id,{
+      dataSlice: { offset: 0, length: 0 }, // Fetch without any data.
+    });
+    const pubkeys = accountsWithoutData.map((account) => account.pubkey);
+
+    const accounts = await getPage(begin, pubkeys);
     for (let i=0; i< accounts.length; i++){
       let userData = USER_ACCOUNT_DATA_LAYOUT.decode(
         accounts[i].data
@@ -151,13 +160,28 @@ const {
       console.log("User message:", userData.message);
     }
 
+}
+
+  async function order(){
+    const orderAccts = await fetchOrderedAccounts();
+    
+    const orderAcctsWithData = await getPage(1, orderAccts);
+
+    for (let i=0; i<orderAcctsWithData.length; i++) {
+      let userData = USER_ACCOUNT_DATA_LAYOUT.decode(
+              orderAcctsWithData[i].data
+            );
+            console.log("User message:", userData.message);
+    }
   }
 
 
+  const msg1 = "this is a test string"
 
-  fetchMultipleAccounts(0, 10, program_id)
+  //order()
+  //fetchMultipleAccounts(1)
   //fetchUserAccount(testPDA)
-  //main(msg1)
+  main(msg1)
   .then(() => {
     console.log("Success");
   })
