@@ -3,7 +3,7 @@ This program is currently deployed on the Solana Devnet at [Program ID: 6wNDDbfh
 
 The purpose of this program is to allow students to provide an intro about themselves with info like how long they have been a dev, how/why they got into solana, and what they expect to get out of the course. 
 
-In the program's current implementation, the PDA created to store this information can only store 129 bytes of data. The first byte is a boolean variable to indicate that the account is initialized, the next 128 bytes are for encoding the string passed in as a parameter. Only the first 128 characters of the string will be encoded to the state account. If the message is less than 128 characters, the program will pad the buffer with 0's until it is the desired 128 bytes long.
+In the program's current implementation, there is no hard coded limit to the size of the PDA that will hold the student's data. In the script I have attached, I limit the buffer passed in to 1000 bytes and then just slice off whatever is not used less than 1000. The program creates an account with enough space to store whatever is passed in. Probably will want to put a limit on this somewhere on the front-end.
 
 ## Testing
 To run the testing script, you will have to 'NPM Install' the dependencies and then run the js file with 'node exampleStudentIntroV2.js'
