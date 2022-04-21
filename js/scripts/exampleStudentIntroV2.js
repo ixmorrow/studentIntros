@@ -63,6 +63,7 @@ var _a = require("@solana/web3.js"), Connection = _a.Connection, sendAndConfirmT
 var buffer_1 = require("buffer");
 var borsh = __importStar(require("@project-serum/borsh"));
 var RPC_ENDPOINT_URL = "https://api.devnet.solana.com";
+//const RPC_ENDPOINT_URL = "http://localhost:8899";
 var commitment = 'confirmed';
 var connection = new Connection(RPC_ENDPOINT_URL, commitment);
 var program_id = new PublicKey("6wNDDbfhqyY8Nm8H2dzAPywjt2D7VKfBzKuSjE3pcgVr");
@@ -84,27 +85,25 @@ var userInputIx = function (i, user, userInfo) {
                 pubkey: SystemProgram.programId,
                 isSigner: false,
                 isWritable: false,
-            },
-            {
-                pubkey: SYSVAR_RENT_PUBKEY,
-                isSigner: false,
-                isWritable: false,
             }
         ],
-        data: buffer_1.Buffer.concat([buffer_1.Buffer.from(new Uint8Array([0])), i]),
+        data: i,
         programId: program_id,
     });
 };
 var IX_DATA_LAYOUT = borsh.struct([
+    borsh.u8("variant"),
+    borsh.str("name"),
     borsh.str("message")
 ]);
 var USER_ACCOUNT_DATA_LAYOUT = borsh.struct([
     borsh.u8("initialized"),
+    borsh.str("name"),
     borsh.str("message")
 ]);
-function main(userName) {
+function main(name, intro) {
     return __awaiter(this, void 0, void 0, function () {
-        var tx, userInfo, payload, msgBuffer, ix, signers, txid, acct;
+        var tx, userInfo, payload, msgBuffer, postIxData, ix, signers, txid;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -116,14 +115,17 @@ function main(userName) {
                     userInfo = (_a.sent())[0];
                     console.log("PDA: " + userInfo);
                     payload = {
-                        message: userName
+                        variant: 0,
+                        name: name,
+                        message: intro
                     };
-                    msgBuffer = buffer_1.Buffer.alloc(128);
-                    console.log(msgBuffer);
+                    msgBuffer = buffer_1.Buffer.alloc(1000);
                     IX_DATA_LAYOUT.encode(payload, msgBuffer);
                     console.log(msgBuffer);
+                    postIxData = msgBuffer.slice(0, IX_DATA_LAYOUT.getSpan(msgBuffer));
+                    console.log(postIxData);
                     console.log("creating init instruction");
-                    ix = userInputIx(msgBuffer, feePayer.publicKey, userInfo);
+                    ix = userInputIx(postIxData, feePayer.publicKey, userInfo);
                     tx.add(ix);
                     return [4 /*yield*/, connection.getBalance(feePayer.publicKey)];
                 case 2:
@@ -151,10 +153,9 @@ function main(userName) {
                 case 6:
                     // sleep to allow time to update
                     _a.sent();
-                    return [4 /*yield*/, connection.getAccountInfo(userInfo)];
-                case 7:
-                    acct = _a.sent();
-                    console.log(acct);
+                    // const acct = await connection.getAccountInfo(userInfo);
+                    // console.log(acct);
+                    fetch(userInfo);
                     return [2 /*return*/];
             }
         });
@@ -247,11 +248,29 @@ function order() {
         });
     });
 }
-var msg1 = "this is a test string";
+function fetch(pda) {
+    return __awaiter(this, void 0, void 0, function () {
+        var account, userData;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0: return [4 /*yield*/, connection.getAccountInfo(pda)];
+                case 1:
+                    account = _a.sent();
+                    userData = USER_ACCOUNT_DATA_LAYOUT.decode(account.data);
+                    console.log("Name:", userData.name);
+                    console.log("Introduction:", userData.message);
+                    return [2 /*return*/];
+            }
+        });
+    });
+}
+var name = "Clifford";
+var intro = "im a big red dawg";
+var testPDA = new PublicKey("EsEnqpvKUbkrVmmwkRwtJpTHRHjTxjR1GVUy9Rp4JYxo");
 //order()
 //fetchMultipleAccounts(1)
-//fetchUserAccount(testPDA)
-main(msg1)
+//fetch(testPDA)
+main(name, intro)
     .then(function () {
     console.log("Success");
 })

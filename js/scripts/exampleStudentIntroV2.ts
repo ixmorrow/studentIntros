@@ -12,6 +12,7 @@ const {
   import * as borsh from "@project-serum/borsh";
 
   const RPC_ENDPOINT_URL = "https://api.devnet.solana.com";
+  //const RPC_ENDPOINT_URL = "http://localhost:8899";
   const commitment = 'confirmed';
   const connection = new Connection(RPC_ENDPOINT_URL, commitment);
   const program_id = new PublicKey("6wNDDbfhqyY8Nm8H2dzAPywjt2D7VKfBzKuSjE3pcgVr");
@@ -35,28 +36,26 @@ const {
           pubkey: SystemProgram.programId,
           isSigner: false,
           isWritable: false,
-        },
-        {
-          pubkey: SYSVAR_RENT_PUBKEY,
-          isSigner: false,
-          isWritable: false,
         }
       ],
-      data: Buffer.concat([Buffer.from(new Uint8Array([0])), i]),
+      data: i,
       programId: program_id,
     });
   };
 
   const IX_DATA_LAYOUT = borsh.struct([
+    borsh.u8("variant"),
+    borsh.str("name"),
     borsh.str("message")
   ]);
 
   const USER_ACCOUNT_DATA_LAYOUT = borsh.struct([
     borsh.u8("initialized"),
+    borsh.str("name"),
     borsh.str("message")
   ])
 
-  async function main(userName: string) {
+  async function main(name: string, intro: string) {
     console.log("Program id: " + program_id.toBase58());
     console.log("Fee payer: " + feePayer.publicKey);
 
@@ -69,14 +68,18 @@ const {
     console.log("PDA: " + userInfo);
 
     const payload = {
-      message: userName
+      variant: 0,
+      name: name,
+      message: intro
     }
-    const msgBuffer = Buffer.alloc(128);
+    const msgBuffer = Buffer.alloc(1000);
     IX_DATA_LAYOUT.encode(payload, msgBuffer);
     console.log(msgBuffer);
+    const postIxData = msgBuffer.slice(0, IX_DATA_LAYOUT.getSpan(msgBuffer));
+    console.log(postIxData);
 
     console.log("creating init instruction");
-    const ix = userInputIx(msgBuffer, feePayer.publicKey, userInfo);
+    const ix = userInputIx(postIxData, feePayer.publicKey, userInfo);
     tx.add(ix);
 
     if ((await connection.getBalance(feePayer.publicKey)) < 1.0) {
@@ -99,8 +102,9 @@ const {
     // sleep to allow time to update
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    const acct = await connection.getAccountInfo(userInfo);
-    console.log(acct);
+    // const acct = await connection.getAccountInfo(userInfo);
+    // console.log(acct);
+    fetch(userInfo);
   }
 
   const perPage = 10;
@@ -175,13 +179,28 @@ async function fetchMultipleAccounts(begin){
     }
   }
 
+  async function fetch(pda: typeof PublicKey){
+    let account = await connection.getAccountInfo(pda);
 
-  const msg1 = "this is a test string"
+    let userData = USER_ACCOUNT_DATA_LAYOUT.decode(
+      account.data
+    );
+
+    console.log("Name:", userData.name);
+    console.log("Introduction:", userData.message);
+  }
+
+
+
+  const name = "Clifford"
+  const intro = "im a big red dawg"
+  const barney = new PublicKey("EsEnqpvKUbkrVmmwkRwtJpTHRHjTxjR1GVUy9Rp4JYxo");
+  const clifford = new PublicKey("41AJ2fSo1kJGavBRwRNAP4HyDcsNefjFKVfaZFbCLa1z");
 
   //order()
   //fetchMultipleAccounts(1)
-  //fetchUserAccount(testPDA)
-  main(msg1)
+  //fetch(testPDA)
+  main(name, intro)
   .then(() => {
     console.log("Success");
   })

@@ -6,10 +6,10 @@ use borsh::{BorshDeserialize, BorshSerialize};
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
 pub struct StudentInfo {
     pub is_initialized: bool,
-    pub msg: [u8; MSG_SIZE],
+    pub name: String,
+    pub msg: String,
 }
 
-const MSG_SIZE: usize = 128;
 impl Sealed for StudentInfo {}
 
 impl IsInitialized for StudentInfo {

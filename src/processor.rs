@@ -5,7 +5,7 @@ use solana_program::{
     program_error::ProgramError,
     msg,
     pubkey::Pubkey,
-    sysvar::{rent::Rent, Sysvar},
+    sysvar::{rent::Rent, Sysvar}, borsh::try_from_slice_unchecked,
     system_program::ID as SYSTEM_PROGRAM_ID,
     system_instruction,
     program::{invoke_signed},
@@ -13,7 +13,6 @@ use solana_program::{
 };
 use crate::{instruction::IntroInstruction, state::StudentInfo};
 use crate::{error::IntroError};
-use std::io::Write;
 use borsh::{ BorshDeserialize, BorshSerialize };
 
 
@@ -28,10 +27,6 @@ pub fn assert_with_msg(statement: bool, err: ProgramError, msg: &str) -> Program
     }
 }
 
-fn fill_from_str(mut bytes: &mut [u8], s: &[u8]) {
-    bytes.write(s).unwrap();
-}
-
 impl Processor {
     pub fn process_instruction(
         program_id: &Pubkey,
@@ -40,11 +35,10 @@ impl Processor {
     ) -> ProgramResult {
         sol_log_compute_units();
         let instruction = IntroInstruction::unpack(instruction_data)?;
-        const SIZE: usize = 128;
-
         let account_info_iter = &mut accounts.iter();
+
         match instruction {
-        IntroInstruction::InitializeUserInput (input)  => {
+        IntroInstruction::InitUserInput {name, message}  => {
             msg!("Initialize with user input");
             let initializer = next_account_info(account_info_iter)?;
 
@@ -55,19 +49,24 @@ impl Processor {
 
             let user_account = next_account_info(account_info_iter)?;
             let system_program = next_account_info(account_info_iter)?;
-            let rent = &Rent::from_account_info(next_account_info(account_info_iter)?)?;
+            
             
             msg!("finding pda");
             let (pda, bump_seed) = Pubkey::find_program_address(&[initializer.key.as_ref(),], program_id);
             msg!("pda: {}", pda);
+
+            let account_len: usize = 1 + (4 + name.len()) + (4 + message.len());
+            let rent = Rent::get()?;
+            let rent_lamports = rent.minimum_balance(account_len);
+
 
             msg!("initializing account at pda");
             invoke_signed(
                     &system_instruction::create_account(
                     initializer.key,
                     user_account.key,
-                    Rent::get()?.minimum_balance(129),
-                    129,
+                    rent_lamports,
+                    account_len.try_into().unwrap(),
                     program_id,
                 ),
                 &[initializer.clone(), user_account.clone(), system_program.clone()],
@@ -85,36 +84,27 @@ impl Processor {
                 "Invalid PDA seeds for user account",
             )?;
 
-            msg!("User intro: {}", input);
+            msg!("User name: {}", name);
             if !rent.is_exempt(user_account.lamports(), user_account.data_len()) {
                 msg!("user account is not rent exempt");
                 return Err(IntroError::NotRentExempt.into());
             }
             msg!("unpacking state account");
-            let mut account_data = user_account.data.borrow_mut();
+            let mut account_data = try_from_slice_unchecked::<StudentInfo>(&user_account.data.borrow()).unwrap();
             msg!("borrowed account data");
-            let mut user = StudentInfo::try_from_slice(&account_data)?;
 
-            let data = instruction_data;
-            //let n = instruction_data.len();
-            let mut bytes: [u8; SIZE] = [0; SIZE];
-            if instruction_data.len() >= SIZE {
-                user.msg.clone_from_slice(&data[0..SIZE]);
-            }
-            else {
-                fill_from_str(&mut bytes,data);
-                user.msg.clone_from_slice(&bytes[0..SIZE]);
-            }
             msg!("checking if user account is already initialized");
-            if user.is_initialized() {
+            if account_data.is_initialized() {
                 msg!("Account already initialized");
                 return Err(ProgramError::AccountAlreadyInitialized);
             }
 
-            user.is_initialized = true;
-            msg!("user intro: {:?}", user.msg);
+            account_data.name = name;
+            account_data.msg = message;
+            account_data.is_initialized = true;
+            
             msg!("serializing account");
-            user.serialize(&mut &mut account_data[..])?;
+            account_data.serialize(&mut &mut user_account.data.borrow_mut()[..])?;
             msg!("state account serialized");
 
             sol_log_compute_units();
