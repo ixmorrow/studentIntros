@@ -6,9 +6,9 @@ The purpose of this program is to allow students to provide an intro about thems
 In the program's current implementation, there is no hard coded limit to the size of the PDA that will hold the student's data. In the script I have attached, I limit the buffer passed in to 1000 bytes and then just slice off whatever is not used less than 1000. The program creates an account with enough space to store whatever is passed in. Probably will want to put a limit on this somewhere on the front-end.
 
 ## Testing
-To run the testing script, you will have to 'NPM Install' the dependencies, compile the ts file to js by running npx tsc within the js directory, and then a /dist directory will be added with the compiled js file in it. Move into that directory and run 'node exampleStudentIntro.js'.
+To run the testing script, you will have to 'NPM Install' the dependencies. Once you've installed the dependencies, running 'npm start' inside the /js dir will compile and run the 'exampleStudentIntro.ts' file.
 
-If you make changes to the ts file, then you will have re-compile it to js with the command 'npx tsc' and then follow the step above to run the newly compiled js file.
+If you make changes to the ts file, all you need to do is save and run 'npm start' again.
 
 ## Program Updates
 The program is currently deployed to devnet. If we want to make changes to the program side code either I will have to implement these changes and then re-deploy the program to the same program id or someone else can make the changes and deploy them to a new program id. Only the initial author has the authority to push updates to a program at a specific program id.
